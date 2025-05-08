@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.boot.web.modules.web.mapper.TaskMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.boot.web.modules.web.model.Task">
+        <id column="id" property="id" />
+        <result column="title" property="title" />
+        <result column="code" property="code" />
+        <result column="category_id" property="categoryId" />
+        <result column="description" property="description" />
+        <result column="status" property="status" />
+        <result column="importance_id" property="importanceId" />
+        <result column="exigency_id" property="exigencyId" />
+        <result column="resources_data" property="resourcesData" />
+        <result column="user_data" property="userData" />
+        <result column="time_spend" property="timeSpend" />
+        <result column="deadline" property="deadline" />
+        <result column="need_meeting_room" property="needMeetingRoom" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+    <select id="searchTask" resultType="com.boot.web.modules.web.vo.TaskVo">
+<!--        select t.*,c.name as categoryName,pi.name as importanceName,pe.name as exigencyName-->
+<!--        from task t-->
+<!--        left join category c on c.id = t.category_id-->
+<!--        left join priority pi on pi.id = t.importance_id and pi.type = 1-->
+<!--        left join priority pe on pe.id = t.exigency_id and pe.type =2-->
+<!--        <where>-->
+<!--            <if test="searchKey != null and searchKey != ''">-->
+<!--                AND (t.title LIKE CONCAT('%', #{searchKey}, '%') OR t.code LIKE CONCAT('%', #{searchKey}, '%') OR t.description LIKE CONCAT('%', #{searchKey}, '%'))-->
+<!--            </if>-->
+<!--            <if test="categoryId != null and categoryId != ''">-->
+<!--                AND t.category_id = #{categoryId}-->
+<!--            </if>-->
+<!--        </where>-->
+<!--        order by t.create_time desc-->
+        SELECT
+        t.*,
+        c.name AS categoryName,
+        pi.name AS importanceName,
+        pe.name AS exigencyName,
+        (pi.score * pi.weight + pe.score * pe.weight) AS priorityScore
+        FROM
+        task t
+        LEFT JOIN
+        category c ON c.id = t.category_id
+        LEFT JOIN
+        priority pi ON pi.id = t.importance_id AND pi.type = 1
+        LEFT JOIN
+        priority pe ON pe.id = t.exigency_id AND pe.type = 2
+        <where>
+            <if test="searchKey != null and searchKey != ''">
+                AND (t.title LIKE CONCAT('%', #{searchKey}, '%')
+                OR t.code LIKE CONCAT('%', #{searchKey}, '%')
+                OR t.description LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="categoryId != null and categoryId != ''">
+                AND t.category_id = #{categoryId}
+            </if>
+        </where>
+        ORDER BY
+        priorityScore DESC,
+        t.deadline ASC
+    </select>
+    <select id="listAll" resultType="com.boot.web.modules.web.vo.TaskVo">
+        SELECT
+        t.*,
+        c.name AS categoryName,
+        pi.name AS importanceName,
+        pe.name AS exigencyName,
+        (pi.score * pi.weight + pe.score * pe.weight) AS priorityScore
+        FROM
+        task t
+        LEFT JOIN
+        category c ON c.id = t.category_id
+        LEFT JOIN
+        priority pi ON pi.id = t.importance_id AND pi.type = 1
+        LEFT JOIN
+        priority pe ON pe.id = t.exigency_id AND pe.type = 2
+        <where>
+            <if test="status != null and status != ''">
+                AND t.status = #{status}
+            </if>
+            AND t.deadline > NOW()
+        </where>
+        ORDER BY
+        priorityScore DESC,
+        t.deadline DESC
+    </select>
+    <select id="trendPie" resultType="com.boot.web.modules.web.vo.TrendPie">
+        SELECT
+        c.name AS name,
+        COUNT(t.id) AS count
+        FROM
+        task t
+        LEFT JOIN
+        category c ON c.id = t.category_id
+        WHERE 1=1
+        <if test="userId != null and userId != '' and userId != 1">
+            AND JSON_CONTAINS(t.user_data, CAST(#{userId} AS CHAR))
+        </if>
+        GROUP BY
+        t.category_id, c.name
+    </select>
+    <select id="trend" resultType="com.boot.web.modules.web.vo.Trend">
+        SELECT
+        DATE_FORMAT(create_time, '%Y-%m-%d') AS date,
+        SUM(CASE
+        WHEN status = 5 THEN 1
+        ELSE 0
+        END) AS countLeft,
+        SUM(CASE
+        WHEN status = 4 THEN 1
+        ELSE 0
+        END) AS countRight
+        FROM `task`
+        WHERE create_time BETWEEN STR_TO_DATE(#{startDate}, '%Y-%m-%d') AND DATE_ADD(STR_TO_DATE(#{endDate}, '%Y-%m-%d'), INTERVAL 1 DAY)
+        <if test="userId != null and userId != '' and userId != 1">
+            AND JSON_CONTAINS(user_data, CAST(#{userId} AS CHAR))
+        </if>
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')
+        ORDER BY date ASC
+    </select>
+
+    <select id="userCompletedTaskTrend" resultType="com.boot.web.modules.web.vo.Trend">
+        SELECT
+            d.date AS date,
+            COALESCE(SUM(CASE WHEN t.status = 1 AND DATE(t.create_time) = d.date THEN 1 ELSE 0 END), 0) AS countPending,
+            COALESCE(SUM(CASE WHEN t.status = 5 AND DATE(t.update_time) = d.date THEN 1 ELSE 0 END), 0) AS countLeft, -- 逾期 (Overdue)
+            COALESCE(SUM(CASE WHEN t.status = 4 AND DATE(t.update_time) = d.date THEN 1 ELSE 0 END), 0) AS countRight -- 已完成 (Completed)
+        FROM (
+            -- Generate a series of dates within the range
+            SELECT DATE_FORMAT(DATE_ADD(STR_TO_DATE(#{startDate}, '%Y-%m-%d'), INTERVAL n DAY), '%Y-%m-%d') AS date
+            FROM (
+                 -- Create a sequence of numbers (adjust the limit based on max possible date range)
+                 SELECT a.N + b.N * 10 + c.N * 100 AS n
+                 FROM (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
+                 CROSS JOIN (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) b
+                 CROSS JOIN (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c
+                 ORDER BY n
+            ) numbers
+            WHERE DATE_ADD(STR_TO_DATE(#{startDate}, '%Y-%m-%d'), INTERVAL n DAY) &lt;= STR_TO_DATE(#{endDate}, '%Y-%m-%d')
+        ) d
+        LEFT JOIN task t ON (
+            (DATE(t.create_time) = d.date AND t.status = 1) OR 
+            (DATE(t.update_time) = d.date AND t.status IN (4, 5))
+        )
+        AND JSON_CONTAINS(t.user_data, CAST(#{userId} AS CHAR))
+        GROUP BY d.date
+        ORDER BY d.date ASC
+    </select>
+    
+    <select id="findPendingMeetingRoomIds" resultType="java.lang.Long">
+        SELECT t.id
+        FROM task t
+        WHERE t.need_meeting_room = 1
+        AND t.status IN (1, 2, 3) <!-- 待办、已安排、进行中的任务 -->
+        AND (t.start_time BETWEEN #{startTime} AND #{endTime}
+            OR t.deadline BETWEEN #{startTime} AND #{endTime})
+        AND NOT EXISTS (
+            SELECT 1 FROM schedule s WHERE s.task_id = t.id
+        )
+    </select>
+
+</mapper>

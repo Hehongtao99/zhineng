@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.boot.web.modules.web.mapper.NotificationMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.boot.web.modules.web.model.Notification">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="message" property="message" />
+        <result column="schedule_id" property="scheduleId" />
+        <result column="type" property="type" />
+        <result column="status" property="status" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+    <select id="search" resultType="com.boot.web.modules.web.vo.NotificationVo">
+        select n.*,u.nick_name as userName,t.title as taskName, t.id as taskId
+        from notification n
+        left join ums_admin u on u.id = n.user_id
+        left join schedule s on s.id = n.schedule_id
+        left join task t on s.task_id = t.id
+        <where>
+            <if test="searchKey != null and searchKey != ''">
+                AND (n.message LIKE CONCAT('%', #{searchKey}, '%') OR u.nick_name LIKE CONCAT('%', #{searchKey}, '%') OR t.title LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="status != null and status != ''">
+                AND n.status = #{status}
+            </if>
+        </where>
+        order by n.create_time desc
+    </select>
+    <select id="searchUser" resultType="com.boot.web.modules.web.vo.NotificationVo">
+        select n.*,u.nick_name as userName,t.title as taskName, t.id as taskId
+        from notification n
+        left join ums_admin u on u.id = n.user_id
+        left join schedule s on s.id = n.schedule_id
+        left join task t on s.task_id = t.id
+        <where>
+            <if test="searchKey != null and searchKey != ''">
+                AND (n.message LIKE CONCAT('%', #{searchKey}, '%') OR t.title LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="status != null and status != ''">
+                AND n.status = #{status}
+            </if>
+            and u.id = #{userId}
+        </where>
+        order by n.create_time desc
+    </select>
+
+</mapper>

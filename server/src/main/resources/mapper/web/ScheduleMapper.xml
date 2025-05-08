@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.boot.web.modules.web.mapper.ScheduleMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.boot.web.modules.web.model.Schedule">
+        <id column="id" property="id" />
+        <result column="task_id" property="taskId" />
+        <result column="start_time" property="startTime" />
+        <result column="end_time" property="endTime" />
+        <result column="create_time" property="createTime" />
+        <result column="user_id" property="userId" />
+        <result column="parent_id" property="parentId" />
+    </resultMap>
+    <select id="searchSchedule" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId,
+            u.nick_name AS username,
+            u.username AS nickname
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        LEFT JOIN
+            ums_admin u ON u.id = s.user_id
+        <where>
+            s.user_id = 1 <!-- 管理员只看自己的日程 -->
+            <if test="searchKey != null and searchKey != ''">
+                AND (t.title LIKE CONCAT('%', #{searchKey}, '%') OR t.code LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="status != null">
+                AND t.status = #{status}
+            </if>
+        </where>
+        GROUP BY s.id
+        ORDER BY
+            s.start_time ASC
+    </select>
+    <select id="findAllSchedules" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        WHERE
+            s.user_id = 1 <!-- 管理员只看自己的日程 -->
+        GROUP BY s.id
+        ORDER BY
+            s.start_time ASC
+    </select>
+    <select id="findByIds" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        <where>
+            s.id IN
+            <foreach collection="list" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </where>
+        GROUP BY s.id
+        ORDER BY
+            s.start_time ASC
+    </select>
+    
+    <select id="findSchedulesByMonth" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId,
+            u.nick_name AS username,
+            u.username AS nickname
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        LEFT JOIN
+            ums_admin u ON u.id = s.user_id
+        WHERE
+            DATE_FORMAT(s.start_time, '%Y-%m') = #{yearMonth}
+        ORDER BY
+            s.start_time ASC
+    </select>
+    
+    <select id="findSchedulesByMonthAndUser" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId,
+            u.nick_name AS username,
+            u.username AS nickname
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        LEFT JOIN
+            ums_admin u ON u.id = s.user_id
+        WHERE
+            DATE_FORMAT(s.start_time, '%Y-%m') = #{yearMonth}
+            AND s.user_id = #{userId}
+        ORDER BY
+            s.start_time ASC
+    </select>
+
+    <select id="searchUserSchedule" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId,
+            u.nick_name AS username,
+            u.username AS nickname
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        LEFT JOIN
+            ums_admin u ON u.id = s.user_id
+        <where>
+            s.user_id = #{userId}
+            <if test="searchKey != null and searchKey != ''">
+                AND (t.title LIKE CONCAT('%', #{searchKey}, '%') OR t.code LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="status != null">
+                AND t.status = #{status}
+            </if>
+        </where>
+        GROUP BY s.id
+        ORDER BY
+            s.start_time ASC
+    </select>
+
+    <select id="searchAllUsersSchedules" resultType="com.boot.web.modules.web.vo.ScheduleVo">
+        SELECT DISTINCT
+            s.*,
+            t.title AS taskName,
+            t.code AS taskCode,
+            t.user_data AS userData,
+            t.resources_data AS resourcesData,
+            t.deadline AS deadline,
+            s.end_time AS endTime,
+            s.user_id AS userId,
+            s.parent_id AS parentId,
+            u.username AS username,
+            u.nick_name AS nickname
+        FROM
+            schedule s
+        LEFT JOIN
+            task t ON t.id = s.task_id
+        LEFT JOIN
+            ums_admin u ON u.id = s.user_id
+        <where>
+            <if test="searchKey != null and searchKey != ''">
+                AND (t.title LIKE CONCAT('%', #{searchKey}, '%') 
+                     OR t.code LIKE CONCAT('%', #{searchKey}, '%')
+                     OR u.username LIKE CONCAT('%', #{searchKey}, '%')
+                     OR u.nick_name LIKE CONCAT('%', #{searchKey}, '%'))
+            </if>
+            <if test="status != null">
+                AND t.status = #{status}
+            </if>
+        </where>
+        GROUP BY s.id
+        ORDER BY
+            s.user_id, s.start_time ASC
+    </select>
+</mapper>

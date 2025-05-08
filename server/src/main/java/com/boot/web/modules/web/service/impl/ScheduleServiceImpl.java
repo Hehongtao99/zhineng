@@ -421,7 +421,7 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
             return conflictTasks;
         }
         
-        // 如果当前日程关联的任务状态为已完成(4)或已逾期(5)，不检测冲突
+        // 如果当前日程关联的任务状态为已完成(4)或已逾期(5)，不检测冲突111111111
         if (currentSchedule.getTaskId() != null) {
             Task currentTask = taskService.getById(currentSchedule.getTaskId());
             if (currentTask != null && currentTask.getStatus() != null && 
